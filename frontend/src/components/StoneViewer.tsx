@@ -9,6 +9,7 @@ type StoneViewerProps = {
   waveLevel: number;
   playing: boolean;
   pulseTick: number;
+  exploring?: boolean;
 };
 
 const BASE_POINT_SIZE = 0.012;
@@ -16,8 +17,16 @@ const BASE_OPACITY = 0.82;
 const DRONE_PERIOD = 5.2;
 const DEFORM_INTERVAL_MS = 1000 / 30;
 
-export function StoneViewer({ points, sound, waveLevel, playing, pulseTick }: StoneViewerProps) {
+export function StoneViewer({
+  points,
+  sound,
+  waveLevel,
+  playing,
+  pulseTick,
+  exploring = false,
+}: StoneViewerProps) {
   const mountRef = useRef<HTMLDivElement>(null);
+  const exploringRef = useRef(exploring);
   const playingRef = useRef(playing);
   const startedAtRef = useRef(performance.now());
   const pulseEnergyRef = useRef(0);
@@ -30,6 +39,14 @@ export function StoneViewer({ points, sound, waveLevel, playing, pulseTick }: St
     noiseLevelRef.current = sound.noiseLevel;
     waveLevelRef.current = waveLevel;
   }, [sound.instrument, sound.noiseLevel, waveLevel]);
+
+  useEffect(() => {
+    exploringRef.current = exploring;
+    const canvas = mountRef.current?.querySelector("canvas");
+    if (canvas instanceof HTMLCanvasElement) {
+      canvas.style.touchAction = exploring ? "none" : "pan-y";
+    }
+  }, [exploring]);
 
   useEffect(() => {
     playingRef.current = playing;
@@ -97,7 +114,7 @@ export function StoneViewer({ points, sound, waveLevel, playing, pulseTick }: St
       renderer = new THREE.WebGLRenderer({ antialias: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(width, height);
-      renderer.domElement.style.touchAction = "none";
+      renderer.domElement.style.touchAction = exploringRef.current ? "none" : "pan-y";
       mount.appendChild(renderer.domElement);
 
       animatedPositions = new Float32Array(points.length * 3);
@@ -163,6 +180,7 @@ export function StoneViewer({ points, sound, waveLevel, playing, pulseTick }: St
       controls.autoRotate = false;
       controls.minDistance = 0.4;
       controls.maxDistance = 3;
+      controls.enabled = exploringRef.current;
 
       const animate = (now: number) => {
         frame = requestAnimationFrame(animate);
@@ -235,7 +253,10 @@ export function StoneViewer({ points, sound, waveLevel, playing, pulseTick }: St
           }
         }
 
-        controls?.update();
+        if (controls) {
+          controls.enabled = exploringRef.current;
+          controls.update();
+        }
         if (renderer && camera) {
           renderer.render(scene, camera);
         }
@@ -261,5 +282,10 @@ export function StoneViewer({ points, sound, waveLevel, playing, pulseTick }: St
     };
   }, [points]);
 
-  return <div ref={mountRef} className="viewer" />;
+  return (
+    <div
+      ref={mountRef}
+      className={`viewer${exploring ? " is-exploring" : ""}`}
+    />
+  );
 }

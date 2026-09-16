@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import { CapturePanel } from "@/components/CapturePanel";
 import { SpiritMessage } from "@/components/SpiritMessage";
@@ -35,6 +35,11 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
   const [pulseTick, setPulseTick] = useState(0);
+  const [exploring, setExploring] = useState(false);
+  const [listenHintVisible, setListenHintVisible] = useState(false);
+  const [listenHintPulse, setListenHintPulse] = useState(false);
+  const listenAnchorRef = useRef<HTMLDivElement>(null);
+  const viewerFrameRef = useRef<HTMLDivElement>(null);
   const spiritStyle = analysis
     ? ({
         "--accent": INSTRUMENT_CONFIG[analysis.sound.instrument].theme.accent,
@@ -51,6 +56,53 @@ export default function App() {
     };
   }, [previewUrl]);
 
+  useEffect(() => {
+    if (phase !== "spirit") {
+      setExploring(false);
+      setListenHintVisible(false);
+      setListenHintPulse(false);
+    }
+  }, [phase]);
+
+  useEffect(() => {
+    if (phase !== "spirit" || !listenAnchorRef.current) {
+      return;
+    }
+    const target = listenAnchorRef.current;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setListenHintVisible(!entry.isIntersecting);
+      },
+      { threshold: 0.55 },
+    );
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [phase, analysis]);
+
+  useEffect(() => {
+    if (!listenHintVisible) {
+      setListenHintPulse(false);
+      return;
+    }
+    setListenHintPulse(true);
+    const timer = window.setTimeout(() => setListenHintPulse(false), 4800);
+    return () => window.clearTimeout(timer);
+  }, [listenHintVisible]);
+
+  useEffect(() => {
+    if (!exploring) {
+      return;
+    }
+    const onPointerDown = (event: PointerEvent) => {
+      const frame = viewerFrameRef.current;
+      if (frame && !frame.contains(event.target as Node)) {
+        setExploring(false);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [exploring]);
+
   const onSelect = (nextFile: File) => {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -61,6 +113,7 @@ export default function App() {
     setError(null);
     setListening(false);
     setPulseTick(0);
+    setExploring(false);
     stopHaptic();
     setPhase("capturing");
   };
@@ -78,6 +131,7 @@ export default function App() {
     } catch {
       setAnalysis(null);
       setError("石は応えなかった");
+      setExploring(false);
       setPhase("idle");
     }
   };
@@ -92,6 +146,7 @@ export default function App() {
     setError(null);
     setListening(false);
     setPulseTick(0);
+    setExploring(false);
     stopHaptic();
     setPhase("idle");
   };
@@ -127,14 +182,27 @@ export default function App() {
 
       {phase === "spirit" && analysis && (
         <section className="spirit">
-          <StoneViewer
-            points={analysis.pointCloud.points}
-            sound={analysis.sound}
-            waveLevel={analysis.wave.level}
-            playing={listening}
-            pulseTick={pulseTick}
-          />
-          <div className="spirit-meta">
+          <div
+            ref={viewerFrameRef}
+            className={`viewer-frame${exploring ? " is-exploring" : ""}`}
+          >
+            <StoneViewer
+              points={analysis.pointCloud.points}
+              sound={analysis.sound}
+              waveLevel={analysis.wave.level}
+              playing={listening}
+              pulseTick={pulseTick}
+              exploring={exploring}
+            />
+            <button
+              className={`explore-toggle${exploring ? " is-active" : ""}`}
+              type="button"
+              onClick={() => setExploring((current) => !current)}
+            >
+              {exploring ? "見るだけ" : "石を動かす"}
+            </button>
+          </div>
+          <div className="spirit-meta" ref={listenAnchorRef}>
             <p className="instrument">{INSTRUMENT_LABEL[analysis.sound.instrument]}</p>
             <StoneSong
               sound={analysis.sound}
@@ -160,6 +228,20 @@ export default function App() {
           <button className="ghost-button" type="button" onClick={onReset}>
             別の石を見る
           </button>
+          {listenHintVisible && (
+            <button
+              className={`listen-hint${listenHintPulse ? " is-pulsing" : ""}`}
+              type="button"
+              onClick={() => {
+                listenAnchorRef.current?.scrollIntoView({
+                  behavior: "smooth",
+                  block: "center",
+                });
+              }}
+            >
+              ↓ 波動を聴く
+            </button>
+          )}
         </section>
       )}
     </main>
