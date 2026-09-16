@@ -199,7 +199,7 @@ export default function App() {
               type="button"
               onClick={() => setExploring((current) => !current)}
             >
-              {exploring ? "見るだけ" : "石を動かす"}
+              {exploring ? "観察する" : "触れる"}
             </button>
           </div>
           <div className="spirit-meta" ref={listenAnchorRef}>
