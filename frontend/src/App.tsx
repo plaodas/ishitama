@@ -20,6 +20,9 @@ const INSTRUMENT_LABEL: Record<Instrument, string> = {
   shale: "頁",
   sand: "砂",
   frost: "霜",
+  "moss-deep": "深苔",
+  dusk: "宵",
+  void: "虚",
 };
 
 export default function App() {

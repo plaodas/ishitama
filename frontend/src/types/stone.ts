@@ -7,7 +7,10 @@ export type Instrument =
   | "crystal"
   | "shale"
   | "sand"
-  | "frost";
+  | "frost"
+  | "moss-deep"
+  | "dusk"
+  | "void";
 
 export type Point = {
   x: number;

@@ -14,6 +14,9 @@ Instrument = Literal[
     "shale",
     "sand",
     "frost",
+    "moss-deep",
+    "dusk",
+    "void",
 ]
 
 

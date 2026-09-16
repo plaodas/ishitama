@@ -7,6 +7,9 @@ from app.schemas.stone import Instrument, Sound
 
 
 def hsv_to_instrument(hue: float, saturation: float, value: float) -> Instrument:
+    if value < 0.12:
+        return "void"
+
     if saturation < 0.15:
         if value > 0.85:
             return "crystal"
@@ -18,14 +21,18 @@ def hsv_to_instrument(hue: float, saturation: float, value: float) -> Instrument
         return "ember"
     if hue < 45:
         return "sand"
-    if hue < 90:
+    if hue < 80:
         return "earth"
-    if hue < 160:
+    if hue < 120:
         return "moss"
-    if hue < 210:
+    if hue < 160:
+        return "moss-deep"
+    if hue < 200:
         return "water"
-    if hue < 260:
+    if hue < 240:
         return "frost"
+    if hue < 280:
+        return "dusk"
     return "night"
 
 
