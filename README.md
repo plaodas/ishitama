@@ -20,6 +20,7 @@
 ## できること
 
 - 石の写真（jpg / png）から Depth Anything V2 Small で深度を推定
+- 中央と外周の深度差から石領域を切り出し、背景を除いて点群化する
 - 点群として立体を表示（Three.js）
 - 色と深度から 12 種類の音色を割り当て、Tone.js で再生
 - 中央ラインの波動と点群の呼吸・明滅を音の Pulse に同期
@@ -33,6 +34,20 @@
 | `backend/` | FastAPI + ONNX Runtime CPU |  [Railway](https://railway.com/) |
 
 深度推定は Depth Anything V2 Small の ONNX を CPU で実行する。デプロイサイズとコストを重視するため、PyTorch CUDA 一式は載せない。
+
+## 処理
+
+`POST /api/stone/analyze` はメモリ上で次の順に進む。画像は保存せず、応答後に破棄する。
+
+1. 画像を最大辺 384px に縮小する
+2. Depth Anything V2 Small（ONNX / CPU）で相対深度を推定する
+3. 石マスクを作る（中央の代表深度と外周の背景深度を比較し、勾配の急な境界は越えない。中央からつながった領域だけ残す。面積が極端なら中央楕円にフォールバックする）
+4. マスク内だけを最大約 1 万点まで点群化し、石の中心を原点に合わせる
+5. マスク内の色と凹凸から音色（instrument / pitch / noise / bpm）を決める
+6. マスク内の横断面から波動プロファイルを作る
+7. 音色と波動レベルから短いメッセージを選ぶ
+
+フロントは点群を Three.js で表示し、「聴く」で Tone.js の Drone / Noise / Pulse を再生する。Pulse に合わせて波動ラインと点群が明滅する。
 
 ## ローカル起動
 
