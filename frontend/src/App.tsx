@@ -6,6 +6,7 @@ import { StoneSong } from "@/components/StoneSong";
 import { StoneViewer } from "@/components/StoneViewer";
 import { WavePanel } from "@/components/WavePanel";
 import { analyzeStone } from "@/lib/api";
+import { pulseHaptic, stopHaptic } from "@/lib/haptic";
 import { INSTRUMENT_CONFIG } from "@/lib/instrumentConfig";
 import type { Instrument, StoneAnalysis } from "@/types/stone";
 
@@ -60,6 +61,7 @@ export default function App() {
     setError(null);
     setListening(false);
     setPulseTick(0);
+    stopHaptic();
     setPhase("capturing");
   };
 
@@ -90,6 +92,7 @@ export default function App() {
     setError(null);
     setListening(false);
     setPulseTick(0);
+    stopHaptic();
     setPhase("idle");
   };
 
@@ -135,8 +138,16 @@ export default function App() {
             <p className="instrument">{INSTRUMENT_LABEL[analysis.sound.instrument]}</p>
             <StoneSong
               sound={analysis.sound}
-              onPlayingChange={setListening}
-              onPulse={() => setPulseTick((tick) => tick + 1)}
+              onPlayingChange={(playing) => {
+                setListening(playing);
+                if (!playing) {
+                  stopHaptic();
+                }
+              }}
+              onPulse={() => {
+                pulseHaptic(analysis.sound.instrument);
+                setPulseTick((tick) => tick + 1);
+              }}
             />
           </div>
           <WavePanel
