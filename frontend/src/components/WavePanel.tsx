@@ -1,18 +1,23 @@
 import { useEffect, useMemo, useRef } from "react";
 
-import type { Wave } from "@/types/stone";
+import { INSTRUMENT_CONFIG } from "@/lib/instrumentConfig";
+import type { SoundParams, Wave } from "@/types/stone";
 
 type WavePanelProps = {
   wave: Wave;
+  sound: SoundParams;
   playing?: boolean;
+  pulseTick: number;
 };
 
 const WIDTH = 320;
 const HEIGHT = 72;
 const BREATH_PERIOD = 5.2;
 
-export function WavePanel({ wave, playing = false }: WavePanelProps) {
+export function WavePanel({ wave, sound, playing = false, pulseTick }: WavePanelProps) {
   const lineRef = useRef<SVGPolylineElement>(null);
+  const pulseEnergyRef = useRef(0);
+  const visual = INSTRUMENT_CONFIG[sound.instrument].visual;
   const layout = useMemo(() => {
     const max = Math.max(...wave.profile, 1);
     const min = Math.min(...wave.profile, 0);
@@ -27,6 +32,12 @@ export function WavePanel({ wave, playing = false }: WavePanelProps) {
   }, [wave.profile]);
 
   useEffect(() => {
+    if (pulseTick > 0) {
+      pulseEnergyRef.current = 1;
+    }
+  }, [pulseTick]);
+
+  useEffect(() => {
     const node = lineRef.current;
     if (!node) {
       return;
@@ -35,14 +46,19 @@ export function WavePanel({ wave, playing = false }: WavePanelProps) {
     let frame = 0;
     let amplitude = 0;
     const started = performance.now();
+    let previous = started;
     const targetAmplitude = 2.6 + wave.level * 0.2;
 
     const tick = (now: number) => {
+      const delta = Math.min((now - previous) / 1000, 0.1);
+      previous = now;
+      pulseEnergyRef.current *= Math.exp(-delta * 6);
       const target = playing ? targetAmplitude : 0;
       amplitude += (target - amplitude) * 0.07;
-      if (!playing && amplitude < 0.03) {
+      if (!playing && amplitude < 0.03 && pulseEnergyRef.current < 0.01) {
         amplitude = 0;
         node.setAttribute("points", layout.rest);
+        node.setAttribute("stroke-width", "1.4");
         return;
       }
 
@@ -50,18 +66,29 @@ export function WavePanel({ wave, playing = false }: WavePanelProps) {
       const breath = Math.sin(t * ((Math.PI * 2) / BREATH_PERIOD));
       const points = layout.xs
         .map((x, index) => {
-          const ripple = Math.sin(t * 1.9 + index * 0.12) * 0.28;
-          const y = layout.ys[index] + (breath + ripple) * amplitude;
+          const ripple =
+            Math.sin(t * 1.9 + index * 0.12) *
+            0.28 *
+            sound.noiseLevel *
+            visual.noise;
+          const pulseShape = Math.sin((index / Math.max(layout.xs.length - 1, 1)) * Math.PI);
+          const pulse =
+            pulseShape * pulseEnergyRef.current * (2.4 + wave.level * 0.2) * visual.pulse;
+          const y = layout.ys[index] + (breath * visual.drone + ripple) * amplitude - pulse;
           return `${x.toFixed(1)},${y.toFixed(1)}`;
         })
         .join(" ");
       node.setAttribute("points", points);
+      node.setAttribute(
+        "stroke-width",
+        (1.4 + pulseEnergyRef.current * 0.7 * visual.pulse).toFixed(2),
+      );
       frame = requestAnimationFrame(tick);
     };
 
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [layout, playing, wave.level]);
+  }, [layout, playing, sound.noiseLevel, visual.drone, visual.noise, visual.pulse, wave.level]);
 
   return (
     <section className="wave-panel">

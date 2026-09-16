@@ -6,13 +6,16 @@ import type { SoundParams } from "@/types/stone";
 type StoneSongProps = {
   sound: SoundParams;
   onPlayingChange?: (playing: boolean) => void;
+  onPulse?: () => void;
 };
 
-export function StoneSong({ sound, onPlayingChange }: StoneSongProps) {
+export function StoneSong({ sound, onPlayingChange, onPulse }: StoneSongProps) {
   const stopRef = useRef<(() => void) | null>(null);
   const onPlayingChangeRef = useRef(onPlayingChange);
+  const onPulseRef = useRef(onPulse);
   const [playing, setPlaying] = useState(false);
   onPlayingChangeRef.current = onPlayingChange;
+  onPulseRef.current = onPulse;
 
   const setPlayingState = (next: boolean) => {
     setPlaying(next);
@@ -34,7 +37,9 @@ export function StoneSong({ sound, onPlayingChange }: StoneSongProps) {
       setPlayingState(false);
       return;
     }
-    stopRef.current = await startStoneSong(sound);
+    stopRef.current = await startStoneSong(sound, {
+      onPulse: () => onPulseRef.current?.(),
+    });
     setPlayingState(true);
   };
 

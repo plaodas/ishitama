@@ -32,6 +32,7 @@ export default function App() {
   const [analysis, setAnalysis] = useState<StoneAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
+  const [pulseTick, setPulseTick] = useState(0);
 
   useEffect(() => {
     return () => {
@@ -50,6 +51,7 @@ export default function App() {
     setAnalysis(null);
     setError(null);
     setListening(false);
+    setPulseTick(0);
     setPhase("capturing");
   };
 
@@ -79,6 +81,7 @@ export default function App() {
     setAnalysis(null);
     setError(null);
     setListening(false);
+    setPulseTick(0);
     setPhase("idle");
   };
 
@@ -113,12 +116,26 @@ export default function App() {
 
       {phase === "spirit" && analysis && (
         <section className="spirit">
-          <StoneViewer points={analysis.pointCloud.points} />
+          <StoneViewer
+            points={analysis.pointCloud.points}
+            sound={analysis.sound}
+            playing={listening}
+            pulseTick={pulseTick}
+          />
           <div className="spirit-meta">
             <p className="instrument">{INSTRUMENT_LABEL[analysis.sound.instrument]}</p>
-            <StoneSong sound={analysis.sound} onPlayingChange={setListening} />
+            <StoneSong
+              sound={analysis.sound}
+              onPlayingChange={setListening}
+              onPulse={() => setPulseTick((tick) => tick + 1)}
+            />
           </div>
-          <WavePanel wave={analysis.wave} playing={listening} />
+          <WavePanel
+            wave={analysis.wave}
+            sound={analysis.sound}
+            playing={listening}
+            pulseTick={pulseTick}
+          />
           <SpiritMessage message={analysis.message} />
           <button className="ghost-button" type="button" onClick={onReset}>
             別の石を見る
