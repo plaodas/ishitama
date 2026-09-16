@@ -36,14 +36,16 @@ def hsv_to_instrument(hue: float, saturation: float, value: float) -> Instrument
     return "night"
 
 
-def build_sound(image: Image.Image, depth: np.ndarray) -> Sound:
-    mean_depth = float(depth.mean())
-    std_depth = float(depth.std())
-    occupancy = float((depth > 0.45).mean())
+def build_sound(image: Image.Image, depth: np.ndarray, mask: np.ndarray) -> Sound:
+    stone_depth = depth[mask] if mask.any() else depth.ravel()
+    mean_depth = float(stone_depth.mean())
+    std_depth = float(stone_depth.std())
+    occupancy = float(mask.mean()) if mask.any() else float((depth > 0.45).mean())
     hsv = np.asarray(image.convert("HSV"), dtype=np.float32)
-    hue = float(np.median(hsv[:, :, 0])) * (360.0 / 255.0)
-    saturation = float(np.median(hsv[:, :, 1])) / 255.0
-    value = float(np.median(hsv[:, :, 2])) / 255.0
+    stone_hsv = hsv[mask] if mask.any() else hsv.reshape(-1, 3)
+    hue = float(np.median(stone_hsv[:, 0])) * (360.0 / 255.0)
+    saturation = float(np.median(stone_hsv[:, 1])) / 255.0
+    value = float(np.median(stone_hsv[:, 2])) / 255.0
 
     return Sound(
         pitch=55.0 + (1.0 - mean_depth) * 165.0,

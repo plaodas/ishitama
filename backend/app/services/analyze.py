@@ -7,6 +7,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 
 from app.schemas.stone import PointCloud, StoneAnalysis
 from app.services.depth import DepthEstimator
+from app.services.mask import build_stone_mask
 from app.services.message import compose_message
 from app.services.pointcloud import build_point_cloud
 from app.services.sound import build_sound
@@ -20,9 +21,10 @@ def analyze_image(raw: bytes, estimator: DepthEstimator) -> StoneAnalysis:
     image.thumbnail((MAX_SIDE, MAX_SIDE))
     rgb = np.asarray(image)
     depth = estimator.infer(image)
-    points = build_point_cloud(rgb, depth)
-    sound = build_sound(image, depth)
-    wave = build_wave(depth, sound.noiseLevel)
+    mask = build_stone_mask(depth)
+    points = build_point_cloud(rgb, depth, mask)
+    sound = build_sound(image, depth, mask)
+    wave = build_wave(depth, sound.noiseLevel, mask)
     message = compose_message(sound.instrument, wave.level, sound.pitch)
     return StoneAnalysis(
         pointCloud=PointCloud(points=points),
