@@ -2,14 +2,14 @@
 
 石の写真から深度を推定し、点群・波動・歌として可視化する Web MVP。
 
-フリーランスエンジニア [plaodas](https://github.com/plaodas) のポートフォリオ作品です。MIT License で公開しています。
+フリーランスエンジニア [plaodas](https://github.com/plaodas) のポートフォリオ作品です。
 
 - 公開サイト: [https://ishitama.vercel.app/](https://ishitama.vercel.app/)
 - ソースコード: [https://github.com/plaodas/ishitama](https://github.com/plaodas/ishitama)
 
 ## キャプチャ
 
-初期画面。石の写真を選んで「詠唱」する。
+初期画面。石の写真を選んで「詠唱」する。(スマホではカメラ起動)
 
 ![石魂の初期画面](docs/screenshot-idle.png)
 
@@ -30,9 +30,9 @@
 | 領域 | 技術 | ホスト |
 | --- | --- | --- |
 | `frontend/` | Vite + React + Three.js + Tone.js | [Vercel](https://ishitama.vercel.app/) |
-| `backend/` | FastAPI + ONNX Runtime CPU | Railway |
+| `backend/` | FastAPI + ONNX Runtime CPU |  [Railway](https://railway.com/) |
 
-深度推定は Depth Anything V2 Small の ONNX を CPU で実行する。PyTorch CUDA 一式は載せない。
+深度推定は Depth Anything V2 Small の ONNX を CPU で実行する。デプロイサイズとコストを重視するため、PyTorch CUDA 一式は載せない。
 
 ## ローカル起動
 
