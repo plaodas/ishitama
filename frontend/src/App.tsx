@@ -24,6 +24,7 @@ export default function App() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<StoneAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [listening, setListening] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -41,6 +42,7 @@ export default function App() {
     setPreviewUrl(URL.createObjectURL(nextFile));
     setAnalysis(null);
     setError(null);
+    setListening(false);
     setPhase("capturing");
   };
 
@@ -69,6 +71,7 @@ export default function App() {
     setPreviewUrl(null);
     setAnalysis(null);
     setError(null);
+    setListening(false);
     setPhase("idle");
   };
 
@@ -106,9 +109,9 @@ export default function App() {
           <StoneViewer points={analysis.pointCloud.points} />
           <div className="spirit-meta">
             <p className="instrument">{INSTRUMENT_LABEL[analysis.sound.instrument]}</p>
-            <StoneSong sound={analysis.sound} />
+            <StoneSong sound={analysis.sound} onPlayingChange={setListening} />
           </div>
-          <WavePanel wave={analysis.wave} />
+          <WavePanel wave={analysis.wave} playing={listening} />
           <SpiritMessage message={analysis.message} />
           <button className="ghost-button" type="button" onClick={onReset}>
             別の石を見る

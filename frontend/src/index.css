@@ -179,6 +179,12 @@ input {
   height: 72px;
   color: var(--text);
   opacity: 0.85;
+  overflow: visible;
+  transition: opacity 0.8s ease;
+}
+
+.wave-svg.is-breathing {
+  opacity: 1;
 }
 
 .spirit-message {
