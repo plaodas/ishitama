@@ -6,38 +6,41 @@ from PIL import Image
 from app.schemas.stone import Instrument, Sound
 
 
-# def hue_to_instrument(hue: float) -> Instrument:
-#     if hue < 30 or hue >= 330:
-#         return "ember"
-#     if hue < 80:
-#         return "earth"
-#     if hue < 160:
-#         return "moss"
-#     if hue < 250:
-#         return "water"
-#     return "night"
+def hsv_to_instrument(hue: float, saturation: float, value: float) -> Instrument:
+    if saturation < 0.15:
+        if value > 0.85:
+            return "crystal"
+        if value < 0.35:
+            return "shale"
+        return "earth"
 
-def hue_to_instrument(hue):
-    if hue < 40: return "earth"   # 茶・赤み
-    if hue < 100: return "moss"   # 緑み
-    if hue < 180: return "water"  # 青み
-    if hue < 260: return "night"  # 紫・黒
-    return "ember"                # 黄・白
+    if hue < 20 or hue >= 330:
+        return "ember"
+    if hue < 45:
+        return "sand"
+    if hue < 90:
+        return "earth"
+    if hue < 160:
+        return "moss"
+    if hue < 210:
+        return "water"
+    if hue < 260:
+        return "frost"
+    return "night"
 
 
 def build_sound(image: Image.Image, depth: np.ndarray) -> Sound:
     mean_depth = float(depth.mean())
     std_depth = float(depth.std())
     occupancy = float((depth > 0.45).mean())
-    # hsv = np.asarray(image.convert("HSV"))
-    # hue = float(hsv[:, :, 0].mean()) * (360.0 / 255.0)
-    hsv = np.asarray(image.convert("HSV"))
+    hsv = np.asarray(image.convert("HSV"), dtype=np.float32)
     hue = float(np.median(hsv[:, :, 0])) * (360.0 / 255.0)
+    saturation = float(np.median(hsv[:, :, 1])) / 255.0
+    value = float(np.median(hsv[:, :, 2])) / 255.0
 
     return Sound(
         pitch=55.0 + (1.0 - mean_depth) * 165.0,
-        # noiseLevel=float(np.clip(std_depth / 0.22, 0.0, 1.0)),
-        noiseLevel = float(np.clip(std_depth / 0.35, 0.0, 1.0)),
+        noiseLevel=float(np.clip(std_depth / 0.35, 0.0, 1.0)),
         bpm=40.0 + occupancy * 80.0,
-        instrument=hue_to_instrument(hue),
+        instrument=hsv_to_instrument(hue, saturation, value),
     )

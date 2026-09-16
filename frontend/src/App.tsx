@@ -16,6 +16,10 @@ const INSTRUMENT_LABEL: Record<Instrument, string> = {
   water: "水",
   ember: "熾",
   night: "夜",
+  crystal: "晶",
+  shale: "頁",
+  sand: "砂",
+  frost: "霜",
 };
 
 export default function App() {

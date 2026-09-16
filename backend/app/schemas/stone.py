@@ -4,7 +4,17 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-Instrument = Literal["earth", "moss", "water", "ember", "night"]
+Instrument = Literal[
+    "earth",
+    "moss",
+    "water",
+    "ember",
+    "night",
+    "crystal",
+    "shale",
+    "sand",
+    "frost",
+]
 
 
 class Point(BaseModel):

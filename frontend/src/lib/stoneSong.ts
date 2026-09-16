@@ -8,6 +8,10 @@ const OSC: Record<Instrument, OscillatorName> = {
   water: "sine",
   ember: "sawtooth",
   night: "square",
+  crystal: "sine",
+  shale: "square",
+  sand: "triangle",
+  frost: "sine",
 };
 
 export async function startStoneSong(sound: SoundParams): Promise<() => void> {

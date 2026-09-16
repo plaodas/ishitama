@@ -1,4 +1,13 @@
-export type Instrument = "earth" | "moss" | "water" | "ember" | "night";
+export type Instrument =
+  | "earth"
+  | "moss"
+  | "water"
+  | "ember"
+  | "night"
+  | "crystal"
+  | "shale"
+  | "sand"
+  | "frost";
 
 export type Point = {
   x: number;
