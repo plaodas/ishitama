@@ -5,6 +5,9 @@ type StoneSongEvents = {
   onPulse?: () => void;
 };
 
+const VISUAL_LATENCY_OFFSET = 0.055;
+const MAX_VISUAL_LATENCY = 0.2;
+
 export async function startStoneSong(
   sound: SoundParams,
   events: StoneSongEvents = {},
@@ -12,6 +15,15 @@ export async function startStoneSong(
   const Tone = await import("tone");
   await Tone.start();
   const config = INSTRUMENT_CONFIG[sound.instrument];
+  const audioContext = Tone.context.rawContext as AudioContext;
+  const outputLatency = Math.max(
+    audioContext.baseLatency ?? 0,
+    audioContext.outputLatency ?? 0,
+  );
+  const visualLatency = Math.min(
+    MAX_VISUAL_LATENCY,
+    Math.max(0, outputLatency + VISUAL_LATENCY_OFFSET),
+  );
   Tone.Transport.bpm.value = Math.min(140, Math.max(30, sound.bpm + config.bpmOffset));
 
   const master = new Tone.Gain(0.7).toDestination();
@@ -47,7 +59,7 @@ export async function startStoneSong(
       ? null
       : new Tone.Loop((time) => {
           pulse.triggerAttackRelease(sound.pitch / 2, "8n", time);
-          Tone.Draw.schedule(() => events.onPulse?.(), time);
+          Tone.Draw.schedule(() => events.onPulse?.(), time + visualLatency);
         }, config.pulse.interval);
 
   drone.start();

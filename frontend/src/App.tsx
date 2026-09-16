@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 
 import { CapturePanel } from "@/components/CapturePanel";
 import { SpiritMessage } from "@/components/SpiritMessage";
@@ -6,6 +6,7 @@ import { StoneSong } from "@/components/StoneSong";
 import { StoneViewer } from "@/components/StoneViewer";
 import { WavePanel } from "@/components/WavePanel";
 import { analyzeStone } from "@/lib/api";
+import { INSTRUMENT_CONFIG } from "@/lib/instrumentConfig";
 import type { Instrument, StoneAnalysis } from "@/types/stone";
 
 type Phase = "idle" | "capturing" | "analyzing" | "spirit";
@@ -33,6 +34,13 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
   const [pulseTick, setPulseTick] = useState(0);
+  const spiritStyle = analysis
+    ? ({
+        "--accent": INSTRUMENT_CONFIG[analysis.sound.instrument].theme.accent,
+        "--atmosphere": INSTRUMENT_CONFIG[analysis.sound.instrument].theme.atmosphere,
+        "--level-glow": `${analysis.wave.level <= 3 ? 0 : analysis.wave.level <= 6 ? 2 : 4}px`,
+      } as CSSProperties)
+    : undefined;
 
   useEffect(() => {
     return () => {
@@ -86,7 +94,7 @@ export default function App() {
   };
 
   return (
-    <main className="ritual">
+    <main className={`ritual${analysis ? " has-spirit-theme" : ""}`} style={spiritStyle}>
       <header className="masthead">
         <p className="kicker">Spirit of Stone</p>
         <h1>石魂</h1>
@@ -119,6 +127,7 @@ export default function App() {
           <StoneViewer
             points={analysis.pointCloud.points}
             sound={analysis.sound}
+            waveLevel={analysis.wave.level}
             playing={listening}
             pulseTick={pulseTick}
           />

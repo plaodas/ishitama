@@ -6,6 +6,7 @@ import type { Point, SoundParams } from "@/types/stone";
 type StoneViewerProps = {
   points: Point[];
   sound: SoundParams;
+  waveLevel: number;
   playing: boolean;
   pulseTick: number;
 };
@@ -15,18 +16,20 @@ const BASE_OPACITY = 0.82;
 const DRONE_PERIOD = 5.2;
 const DEFORM_INTERVAL_MS = 1000 / 30;
 
-export function StoneViewer({ points, sound, playing, pulseTick }: StoneViewerProps) {
+export function StoneViewer({ points, sound, waveLevel, playing, pulseTick }: StoneViewerProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const playingRef = useRef(playing);
   const startedAtRef = useRef(performance.now());
   const pulseEnergyRef = useRef(0);
-  const visualRef = useRef(INSTRUMENT_CONFIG[sound.instrument].visual);
+  const configRef = useRef(INSTRUMENT_CONFIG[sound.instrument]);
   const noiseLevelRef = useRef(sound.noiseLevel);
+  const waveLevelRef = useRef(waveLevel);
 
   useEffect(() => {
-    visualRef.current = INSTRUMENT_CONFIG[sound.instrument].visual;
+    configRef.current = INSTRUMENT_CONFIG[sound.instrument];
     noiseLevelRef.current = sound.noiseLevel;
-  }, [sound.instrument, sound.noiseLevel]);
+    waveLevelRef.current = waveLevel;
+  }, [sound.instrument, sound.noiseLevel, waveLevel]);
 
   useEffect(() => {
     playingRef.current = playing;
@@ -59,6 +62,8 @@ export function StoneViewer({ points, sound, playing, pulseTick }: StoneViewerPr
     let geometry: import("three").BufferGeometry | undefined;
     let positionAttribute: import("three").BufferAttribute | undefined;
     let material: import("three").PointsMaterial | undefined;
+    let glowGeometry: import("three").BufferGeometry | undefined;
+    let glowMaterial: import("three").PointsMaterial | undefined;
     let stone: import("three").Points | undefined;
     let animatedPositions: Float32Array | undefined;
     let basePositions: Float32Array | undefined;
@@ -84,7 +89,7 @@ export function StoneViewer({ points, sound, playing, pulseTick }: StoneViewerPr
       const width = mount.clientWidth;
       const height = Math.max(mount.clientHeight, 1);
       const scene = new THREE.Scene();
-      scene.background = new THREE.Color(0x0b0a09);
+      scene.background = new THREE.Color(configRef.current.theme.atmosphere);
 
       camera = new THREE.PerspectiveCamera(45, width / height, 0.01, 10);
       camera.position.set(0, 0, 1.35);
@@ -121,6 +126,35 @@ export function StoneViewer({ points, sound, playing, pulseTick }: StoneViewerPr
         opacity: BASE_OPACITY,
       });
       stone = new THREE.Points(geometry, material);
+
+      if (waveLevelRef.current >= 7) {
+        const glowPositions = new Float32Array(Math.ceil(points.length / 7) * 3);
+        let glowOffset = 0;
+        points.forEach((point, index) => {
+          if (index % 7 !== 0) {
+            return;
+          }
+          glowPositions[glowOffset] = point.x;
+          glowPositions[glowOffset + 1] = point.y;
+          glowPositions[glowOffset + 2] = point.z;
+          glowOffset += 3;
+        });
+        glowGeometry = new THREE.BufferGeometry();
+        glowGeometry.setAttribute(
+          "position",
+          new THREE.BufferAttribute(glowPositions.slice(0, glowOffset), 3),
+        );
+        glowMaterial = new THREE.PointsMaterial({
+          color: configRef.current.theme.accent,
+          size: BASE_POINT_SIZE * 1.35,
+          sizeAttenuation: true,
+          transparent: true,
+          opacity: 0,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+        });
+        stone.add(new THREE.Points(glowGeometry, glowMaterial));
+      }
       scene.add(stone);
 
       controls = new OrbitControls(camera, renderer.domElement);
@@ -139,20 +173,34 @@ export function StoneViewer({ points, sound, playing, pulseTick }: StoneViewerPr
         activity += (activityTarget - activity) * (1 - Math.exp(-delta * 4));
         pulseEnergyRef.current *= Math.exp(-delta * 6);
 
-        const visual = visualRef.current;
+        const visual = configRef.current.visual;
+        const level = waveLevelRef.current;
+        const levelIntensity = (level - 1) / 8;
+        const motionSpeed = Math.max(0.25, 0.5 + level * 0.1 + visual.speedOffset);
         const elapsed = (now - startedAtRef.current) / 1000;
-        const breath = Math.sin(elapsed * ((Math.PI * 2) / DRONE_PERIOD));
+        const breath = Math.sin(elapsed * ((Math.PI * 2) / DRONE_PERIOD) * motionSpeed);
         const pulseScale = pulseEnergyRef.current * 0.025 * visual.pulse;
         const droneScale = breath * 0.008 * visual.drone * activity;
 
         if (stone) {
           stone.scale.setScalar(1 + droneScale + pulseScale);
+          stone.position.x = Math.sin(elapsed * 0.45 * motionSpeed) * 0.004 * visual.drift * activity;
+          stone.position.y =
+            Math.cos(elapsed * 0.36 * motionSpeed) * 0.0025 * visual.drift * activity;
         }
         if (material) {
           material.size = BASE_POINT_SIZE + pulseEnergyRef.current * 0.004 * visual.pulse;
           material.opacity = Math.min(
             1,
             BASE_OPACITY + pulseEnergyRef.current * 0.18 * visual.pulse,
+          );
+        }
+        if (glowMaterial) {
+          glowMaterial.size =
+            BASE_POINT_SIZE * 1.35 + pulseEnergyRef.current * 0.007 * visual.pulse;
+          glowMaterial.opacity = Math.min(
+            0.58,
+            pulseEnergyRef.current * 0.42 * visual.pulse * levelIntensity,
           );
         }
 
@@ -170,8 +218,9 @@ export function StoneViewer({ points, sound, playing, pulseTick }: StoneViewerPr
             for (let index = 0; index < pointCount; index += 1) {
               const offset = index * 3;
               const phase = index * 2.399963;
-              const droneMotion = Math.sin(elapsed * 1.2 + phase * 0.08) * droneAmount;
-              const noiseMotion = Math.sin(elapsed * 9 + phase) * noiseAmount;
+              const droneMotion =
+                Math.sin(elapsed * 1.2 * motionSpeed + phase * 0.08) * droneAmount;
+              const noiseMotion = Math.sin(elapsed * 9 * motionSpeed + phase) * noiseAmount;
               const movement = droneMotion + noiseMotion;
               animatedPositions[offset] = basePositions[offset] + movement;
               animatedPositions[offset + 1] = basePositions[offset + 1] + movement * 0.65;
@@ -203,6 +252,8 @@ export function StoneViewer({ points, sound, playing, pulseTick }: StoneViewerPr
       controls?.dispose();
       geometry?.dispose();
       material?.dispose();
+      glowGeometry?.dispose();
+      glowMaterial?.dispose();
       renderer?.dispose();
       if (renderer?.domElement.parentElement === mount) {
         mount.removeChild(renderer.domElement);

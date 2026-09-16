@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-import { startStoneSong } from "@/lib/stoneSong";
+import { startStoneSong } from "../lib/stoneSong";
 import type { SoundParams } from "@/types/stone";
 
 type StoneSongProps = {
@@ -44,7 +44,11 @@ export function StoneSong({ sound, onPlayingChange, onPulse }: StoneSongProps) {
   };
 
   return (
-    <button className="ghost-button" type="button" onClick={() => void toggle()}>
+    <button
+      className={`ghost-button song-button${playing ? " is-playing" : ""}`}
+      type="button"
+      onClick={() => void toggle()}
+    >
       {playing ? "沈黙" : "聴く"}
     </button>
   );
