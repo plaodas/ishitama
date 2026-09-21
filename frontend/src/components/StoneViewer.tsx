@@ -10,10 +10,14 @@ type StoneViewerProps = {
   playing: boolean;
   pulseTick: number;
   exploring?: boolean;
+  overlaying?: boolean;
 };
 
 const BASE_POINT_SIZE = 0.012;
+const OVERLAY_POINT_SIZE = 0.02;
 const BASE_OPACITY = 0.82;
+const OVERLAY_OPACITY = 0.4;
+const OVERLAY_SCALE = 1.12;
 const DRONE_PERIOD = 5.2;
 const DEFORM_INTERVAL_MS = 1000 / 30;
 
@@ -24,9 +28,11 @@ export function StoneViewer({
   playing,
   pulseTick,
   exploring = false,
+  overlaying = false,
 }: StoneViewerProps) {
   const mountRef = useRef<HTMLDivElement>(null);
   const exploringRef = useRef(exploring);
+  const overlayingRef = useRef(overlaying);
   const playingRef = useRef(playing);
   const startedAtRef = useRef(performance.now());
   const pulseEnergyRef = useRef(0);
@@ -47,6 +53,10 @@ export function StoneViewer({
       canvas.style.touchAction = exploring ? "none" : "pan-y";
     }
   }, [exploring]);
+
+  useEffect(() => {
+    overlayingRef.current = overlaying;
+  }, [overlaying]);
 
   useEffect(() => {
     playingRef.current = playing;
@@ -106,15 +116,18 @@ export function StoneViewer({
       const width = mount.clientWidth;
       const height = Math.max(mount.clientHeight, 1);
       const scene = new THREE.Scene();
-      scene.background = new THREE.Color(configRef.current.theme.atmosphere);
+      const atmosphere = new THREE.Color(configRef.current.theme.atmosphere);
+      scene.background = atmosphere;
 
       camera = new THREE.PerspectiveCamera(45, width / height, 0.01, 10);
       camera.position.set(0, 0, 1.35);
 
-      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
       renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
       renderer.setSize(width, height);
+      renderer.setClearColor(atmosphere, 1);
       renderer.domElement.style.touchAction = exploringRef.current ? "none" : "pan-y";
+      renderer.domElement.style.background = "transparent";
       mount.appendChild(renderer.domElement);
 
       animatedPositions = new Float32Array(points.length * 3);
@@ -199,25 +212,41 @@ export function StoneViewer({
         const breath = Math.sin(elapsed * ((Math.PI * 2) / DRONE_PERIOD) * motionSpeed);
         const pulseScale = pulseEnergyRef.current * 0.025 * visual.pulse;
         const droneScale = breath * 0.008 * visual.drone * activity;
+        const overlayingNow = overlayingRef.current;
+
+        atmosphere.set(configRef.current.theme.atmosphere);
+        if (overlayingNow) {
+          scene.background = null;
+          renderer?.setClearColor(0x000000, 0);
+        } else {
+          scene.background = atmosphere;
+          renderer?.setClearColor(atmosphere, 1);
+        }
 
         if (stone) {
-          stone.scale.setScalar(1 + droneScale + pulseScale);
+          const overlayBoost = overlayingNow ? OVERLAY_SCALE : 1;
+          stone.scale.setScalar((1 + droneScale + pulseScale) * overlayBoost);
           stone.position.x = Math.sin(elapsed * 0.45 * motionSpeed) * 0.004 * visual.drift * activity;
           stone.position.y =
             Math.cos(elapsed * 0.36 * motionSpeed) * 0.0025 * visual.drift * activity;
         }
         if (material) {
-          material.size = BASE_POINT_SIZE + pulseEnergyRef.current * 0.004 * visual.pulse;
+          const pointSize = overlayingNow ? OVERLAY_POINT_SIZE : BASE_POINT_SIZE;
+          const restOpacity = overlayingNow ? OVERLAY_OPACITY : BASE_OPACITY;
+          material.blending = overlayingNow ? THREE.AdditiveBlending : THREE.NormalBlending;
+          material.depthWrite = !overlayingNow;
+          material.size = pointSize + pulseEnergyRef.current * (overlayingNow ? 0.006 : 0.004) * visual.pulse;
           material.opacity = Math.min(
-            1,
-            BASE_OPACITY + pulseEnergyRef.current * 0.18 * visual.pulse,
+            overlayingNow ? 0.72 : 1,
+            restOpacity + pulseEnergyRef.current * (overlayingNow ? 0.24 : 0.18) * visual.pulse,
           );
         }
         if (glowMaterial) {
           glowMaterial.size =
-            BASE_POINT_SIZE * 1.35 + pulseEnergyRef.current * 0.007 * visual.pulse;
+            (overlayingNow ? OVERLAY_POINT_SIZE : BASE_POINT_SIZE) * 1.35 +
+            pulseEnergyRef.current * 0.007 * visual.pulse;
           glowMaterial.opacity = Math.min(
-            0.58,
+            overlayingNow ? 0.72 : 0.58,
             pulseEnergyRef.current * 0.42 * visual.pulse * levelIntensity,
           );
         }
@@ -285,7 +314,7 @@ export function StoneViewer({
   return (
     <div
       ref={mountRef}
-      className={`viewer${exploring ? " is-exploring" : ""}`}
+      className={`viewer${exploring ? " is-exploring" : ""}${overlaying ? " is-overlaying" : ""}`}
     />
   );
 }

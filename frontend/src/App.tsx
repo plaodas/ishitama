@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import { CapturePanel } from "@/components/CapturePanel";
+import { OverlayFeed } from "@/components/OverlayFeed";
 import { SpiritMessage } from "@/components/SpiritMessage";
 import { StoneSong } from "@/components/StoneSong";
 import { StoneViewer } from "@/components/StoneViewer";
@@ -36,6 +37,7 @@ export default function App() {
   const [listening, setListening] = useState(false);
   const [pulseTick, setPulseTick] = useState(0);
   const [exploring, setExploring] = useState(false);
+  const [overlaying, setOverlaying] = useState(false);
   const [listenHintVisible, setListenHintVisible] = useState(false);
   const [listenHintPulse, setListenHintPulse] = useState(false);
   const listenAnchorRef = useRef<HTMLDivElement>(null);
@@ -59,6 +61,7 @@ export default function App() {
   useEffect(() => {
     if (phase !== "spirit") {
       setExploring(false);
+      setOverlaying(false);
       setListenHintVisible(false);
       setListenHintPulse(false);
     }
@@ -114,6 +117,7 @@ export default function App() {
     setListening(false);
     setPulseTick(0);
     setExploring(false);
+    setOverlaying(false);
     stopHaptic();
     setPhase("capturing");
   };
@@ -147,6 +151,7 @@ export default function App() {
     setListening(false);
     setPulseTick(0);
     setExploring(false);
+    setOverlaying(false);
     stopHaptic();
     setPhase("idle");
   };
@@ -181,11 +186,12 @@ export default function App() {
       )}
 
       {phase === "spirit" && analysis && (
-        <section className="spirit">
+        <section className={`spirit${overlaying ? " is-overlaying" : ""}`}>
           <div
             ref={viewerFrameRef}
-            className={`viewer-frame${exploring ? " is-exploring" : ""}`}
+            className={`viewer-frame${exploring ? " is-exploring" : ""}${overlaying ? " is-overlaying" : ""}`}
           >
+            <OverlayFeed active={overlaying} photoUrl={previewUrl} />
             <StoneViewer
               points={analysis.pointCloud.points}
               sound={analysis.sound}
@@ -193,13 +199,24 @@ export default function App() {
               playing={listening}
               pulseTick={pulseTick}
               exploring={exploring}
+              overlaying={overlaying}
             />
+            {overlaying && (
+              <p className="overlay-hint">石を中央に置く</p>
+            )}
             <button
               className={`explore-toggle${exploring ? " is-active" : ""}`}
               type="button"
               onClick={() => setExploring((current) => !current)}
             >
               {exploring ? "観察する" : "触れる"}
+            </button>
+            <button
+              className={`overlay-toggle${overlaying ? " is-active" : ""}`}
+              type="button"
+              onClick={() => setOverlaying((current) => !current)}
+            >
+              {overlaying ? "収める" : "重ねる"}
             </button>
           </div>
           <div className="spirit-meta" ref={listenAnchorRef}>

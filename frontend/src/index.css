@@ -165,9 +165,54 @@ input {
 
 .viewer-frame {
   position: relative;
+  overflow: hidden;
+}
+
+.spirit.is-overlaying::before {
+  opacity: 0.16;
+}
+
+.overlay-feed {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.overlay-feed::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  pointer-events: none;
+  background: radial-gradient(
+    ellipse at 50% 48%,
+    rgba(11, 10, 9, 0.08),
+    rgba(11, 10, 9, 0.52) 78%
+  );
+}
+
+.overlay-layer {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: saturate(0.88) contrast(1.04);
+}
+
+.overlay-layer.is-hidden,
+.overlay-video {
+  opacity: 0;
+}
+
+.overlay-video.is-live {
+  opacity: 1;
 }
 
 .viewer {
+  position: relative;
+  z-index: 1;
   width: 100%;
   height: clamp(240px, 42svh, 360px);
   border: 1px solid color-mix(in srgb, var(--accent) 42%, transparent);
@@ -180,15 +225,23 @@ input {
     background 1.2s ease;
 }
 
+.viewer.is-overlaying,
+.viewer-frame.is-overlaying .viewer {
+  background: transparent;
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+  box-shadow: none;
+}
+
 .viewer.is-exploring,
 .viewer-frame.is-exploring .viewer {
   touch-action: none;
 }
 
-.explore-toggle {
+.explore-toggle,
+.overlay-toggle {
   position: absolute;
-  left: 10px;
   bottom: 10px;
+  z-index: 3;
   appearance: none;
   border: 1px solid color-mix(in srgb, var(--accent) 55%, transparent);
   background: rgba(11, 10, 9, 0.72);
@@ -200,9 +253,37 @@ input {
   cursor: pointer;
 }
 
-.explore-toggle.is-active {
+.explore-toggle {
+  left: 10px;
+}
+
+.overlay-toggle {
+  right: 10px;
+}
+
+.explore-toggle.is-active,
+.overlay-toggle.is-active {
   color: var(--accent);
   box-shadow: 0 0 var(--level-glow) color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+.overlay-hint {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  z-index: 3;
+  margin: 0;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+  background: rgba(11, 10, 9, 0.62);
+  color: var(--accent);
+  font-size: 0.72rem;
+  letter-spacing: 0.22em;
+  text-indent: 0.22em;
+  white-space: nowrap;
+  pointer-events: none;
+  animation: fade-in 0.8s ease;
 }
 
 .listen-hint {
