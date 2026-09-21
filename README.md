@@ -2,8 +2,6 @@
 
 石の写真から深度を推定し、点群・波動・歌として可視化する Web MVP。
 
-フリーランスエンジニア [plaodas](https://github.com/plaodas) のポートフォリオ作品です。
-
 - 公開サイト: [https://ishitama.vercel.app/](https://ishitama.vercel.app/)
 - ソースコード: [https://github.com/plaodas/ishitama](https://github.com/plaodas/ishitama)
 
