@@ -10,13 +10,18 @@ from app.services.depth import DepthEstimator
 from app.services.mask import build_stone_mask
 from app.services.message import compose_message
 from app.services.pointcloud import build_point_cloud
+from app.services.scene import describe_scene
 from app.services.sound import build_sound
 from app.services.wave import build_wave
 
 MAX_SIDE = 384
 
 
-def analyze_image(raw: bytes, estimator: DepthEstimator) -> StoneAnalysis:
+def analyze_image(
+    raw: bytes,
+    estimator: DepthEstimator,
+    hour: int | None = None,
+) -> StoneAnalysis:
     image = _open_rgb(raw)
     image.thumbnail((MAX_SIDE, MAX_SIDE))
     rgb = np.asarray(image)
@@ -25,7 +30,8 @@ def analyze_image(raw: bytes, estimator: DepthEstimator) -> StoneAnalysis:
     points = build_point_cloud(rgb, depth, mask)
     sound = build_sound(image, depth, mask)
     wave = build_wave(depth, sound.noiseLevel, mask)
-    message = compose_message(sound.instrument, wave.level, sound.pitch)
+    scene = describe_scene(image, mask, hour)
+    message = compose_message(sound.instrument, wave.level, sound.pitch, scene)
     return StoneAnalysis(
         pointCloud=PointCloud(points=points),
         sound=sound,

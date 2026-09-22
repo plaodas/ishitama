@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import re
+
 from app.schemas.stone import Instrument
+from app.services.ollama import GENERATE_TIMEOUT, chat
 
 _MESSAGES: dict[tuple[Instrument, str, str], str] = {
     ("earth", "low", "low"): "地脈は静か。この石は長く眠っている。",
@@ -113,6 +116,38 @@ _MESSAGES: dict[tuple[Instrument, str, str], str] = {
     ("void", "high", "high"): "虚が歌っている。存在と無の境界が開いている。",
 }
 
+_INSTRUMENT_JA: dict[Instrument, str] = {
+    "earth": "地",
+    "moss": "苔",
+    "water": "水",
+    "ember": "熾",
+    "night": "夜",
+    "crystal": "晶",
+    "shale": "頁",
+    "sand": "砂",
+    "frost": "霜",
+    "moss-deep": "深苔",
+    "dusk": "宵",
+    "void": "虚",
+}
+_LEVEL_JA = {"low": "静か", "mid": "中くらい", "high": "ざわめいている"}
+_PITCH_JA = {"low": "低い", "mid": "中くらい", "high": "高い"}
+_EXAMPLE_ORDER: tuple[tuple[str, str], ...] = (
+    ("low", "high"),
+    ("high", "low"),
+    ("mid", "low"),
+    ("low", "mid"),
+    ("high", "mid"),
+    ("mid", "high"),
+    ("low", "low"),
+    ("high", "high"),
+    ("mid", "mid"),
+)
+_SYSTEM_PROMPT = "石の声を、日本語で二文だけ書く。説明や前置きは書かない。例と同じ文は使わない。"
+_PREFIXES = ("メッセージ：", "メッセージ:", "出力：", "出力:", "回答：", "回答:")
+_HAS_JAPANESE = re.compile(r"[\u3040-\u30ff\u4e00-\u9fff]")
+_HAS_ENGLISH = re.compile(r"[A-Za-z]{3,}")
+
 
 def _band_from_level(level: int) -> str:
     if level <= 3:
@@ -130,6 +165,71 @@ def _band_from_pitch(pitch: float) -> str:
     return "mid"
 
 
-def compose_message(instrument: Instrument, level: int, pitch: float) -> str:
+def compose_message(instrument: Instrument, level: int, pitch: float, scene: str) -> str:
+    fallback = _lookup(instrument, level, pitch)
+    generated = _generate(instrument, level, pitch, scene)
+    return generated if generated is not None else fallback
+
+
+def _lookup(instrument: Instrument, level: int, pitch: float) -> str:
     key = (instrument, _band_from_level(level), _band_from_pitch(pitch))
     return _MESSAGES.get(key, "この石は、まだ名を持たない。")
+
+
+def _generate(instrument: Instrument, level: int, pitch: float, scene: str) -> str | None:
+    level_band = _band_from_level(level)
+    pitch_band = _band_from_pitch(pitch)
+    examples = _examples(instrument, level_band, pitch_band)
+    example_block = "\n".join(f"- {text}" for text in examples)
+    user = (
+        f"例:\n{example_block}\n\n"
+        f"石は{_INSTRUMENT_JA[instrument]}。"
+        f"響きは{_PITCH_JA[pitch_band]}、表面は{_LEVEL_JA[level_band]}。\n"
+        f"{scene}"
+    )
+    raw = chat(
+        [
+            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "user", "content": user},
+        ],
+        num_predict=80,
+        temperature=0.9,
+        timeout=GENERATE_TIMEOUT,
+    )
+    if raw is None:
+        return None
+    return _clean_generated(raw, examples)
+
+
+def _examples(instrument: Instrument, level_band: str, pitch_band: str) -> list[str]:
+    examples: list[str] = []
+    current = (level_band, pitch_band)
+    for bands in _EXAMPLE_ORDER:
+        if bands == current:
+            continue
+        text = _MESSAGES.get((instrument, bands[0], bands[1]))
+        if text is None:
+            continue
+        examples.append(text)
+        if len(examples) == 3:
+            break
+    return examples
+
+
+def _clean_generated(text: str, examples: list[str]) -> str | None:
+    lines = [re.sub(r"^[-*・\d]+[.、]?\s*", "", line.strip()) for line in text.splitlines()]
+    cleaned = "".join(lines).strip("「」『』\"'")
+    for prefix in _PREFIXES:
+        if cleaned.startswith(prefix):
+            cleaned = cleaned[len(prefix) :].strip()
+    if not _HAS_JAPANESE.search(cleaned) or _HAS_ENGLISH.search(cleaned):
+        return None
+    parts = [part.strip() for part in re.split(r"(?<=[。！？])", cleaned) if part.strip()]
+    if not parts:
+        return None
+    chosen = "".join(parts[:2])
+    if chosen in examples or len(chosen) < 8:
+        return None
+    if "。" not in chosen and "！" not in chosen and "？" not in chosen and len(chosen) > 80:
+        return None
+    return chosen

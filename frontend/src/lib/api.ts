@@ -5,6 +5,7 @@ const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
 export async function analyzeStone(file: File): Promise<StoneAnalysis> {
   const body = new FormData();
   body.append("image", file);
+  body.append("hour", String(new Date().getHours()));
 
   const response = await fetch(`${API_URL}/api/stone/analyze`, {
     method: "POST",
