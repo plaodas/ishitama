@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import secrets
 
 from app.schemas.stone import Instrument
 from app.services.ollama import GENERATE_TIMEOUT, chat
@@ -143,7 +144,16 @@ _EXAMPLE_ORDER: tuple[tuple[str, str], ...] = (
     ("high", "high"),
     ("mid", "mid"),
 )
-_SYSTEM_PROMPT = "石の声を、日本語で二文だけ書く。説明や前置きは書かない。例と同じ文は使わない。"
+_SYSTEM_PROMPT = (
+    "石の声を、日本語で二文だけ書く。説明や前置きは書かない。例と同じ文は使わない。毎回ちがう言い回しにする。"
+)
+_ANGLES = (
+    "石の内側から書く。",
+    "周囲の空気から書く。",
+    "時間の層から書く。",
+    "触れそうな距離から書く。",
+    "遠くから見るように書く。",
+)
 _PREFIXES = ("メッセージ：", "メッセージ:", "出力：", "出力:", "回答：", "回答:")
 _HAS_JAPANESE = re.compile(r"[\u3040-\u30ff\u4e00-\u9fff]")
 _HAS_ENGLISH = re.compile(r"[A-Za-z]{3,}")
@@ -189,11 +199,11 @@ def _generate(instrument: Instrument, level: int, pitch: float, scene: str) -> s
     )
     raw = chat(
         [
-            {"role": "system", "content": _SYSTEM_PROMPT},
+            {"role": "system", "content": f"{_SYSTEM_PROMPT}{_ANGLES[secrets.randbelow(len(_ANGLES))]}"},
             {"role": "user", "content": user},
         ],
         num_predict=80,
-        temperature=0.9,
+        temperature=1.0,
         timeout=GENERATE_TIMEOUT,
     )
     if raw is None:

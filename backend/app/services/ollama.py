@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import secrets
 import urllib.error
 import urllib.request
 
@@ -27,15 +28,20 @@ def chat(
     temperature: float,
     timeout: float,
 ) -> str | None:
+    options: dict[str, float | int] = {
+        "temperature": temperature,
+        "num_predict": num_predict,
+    }
+    if temperature > 0:
+        options["seed"] = secrets.randbelow(2**31)
+        options["top_k"] = 80
+        options["top_p"] = 0.95
     payload = {
         "model": _model(),
         "messages": messages,
         "stream": False,
         "keep_alive": -1,
-        "options": {
-            "temperature": temperature,
-            "num_predict": num_predict,
-        },
+        "options": options,
     }
     request = urllib.request.Request(
         f"{_base_url()}/api/chat",
