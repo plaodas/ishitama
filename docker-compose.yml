@@ -14,9 +14,10 @@ services:
     environment:
       OLLAMA_HOST: http://ollama:11434
     entrypoint: ["/bin/sh", "-c"]
-    command: >
-      until ollama list >/dev/null 2>&1; do sleep 2; done;
-      ollama pull qwen2.5:3b
+    command:
+      - |
+        until ollama list >/dev/null 2>&1; do sleep 2; done
+        ollama pull qwen2.5:3b
     restart: "no"
 
   backend:
