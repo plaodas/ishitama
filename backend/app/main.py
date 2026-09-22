@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.stone import router as stone_router
 from app.services.depth import load_estimator
+from app.services.memory import trim_idle_rss
 from app.services.ollama import warm_model
 
 
@@ -25,6 +26,7 @@ def _cors_origins() -> list[str]:
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     load_estimator()
     await asyncio.to_thread(warm_model)
+    trim_idle_rss()
     yield
 
 
