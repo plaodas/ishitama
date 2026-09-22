@@ -24,8 +24,12 @@ _estimator: DepthEstimator | None = None
 class DepthEstimator:
     def __init__(self) -> None:
         model_path = _resolve_model_path()
+        options = ort.SessionOptions()
+        options.enable_cpu_mem_arena = False
+        options.enable_mem_pattern = False
         self.session = ort.InferenceSession(
             model_path,
+            sess_options=options,
             providers=["CPUExecutionProvider"],
         )
         self.input_name = self.session.get_inputs()[0].name
