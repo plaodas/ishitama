@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
@@ -9,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.stone import router as stone_router
 from app.services.depth import load_estimator
+from app.services.ollama import warm_model
 
 
 def _cors_origins() -> list[str]:
@@ -22,6 +24,7 @@ def _cors_origins() -> list[str]:
 @asynccontextmanager
 async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     load_estimator()
+    await asyncio.to_thread(warm_model)
     yield
 
 
