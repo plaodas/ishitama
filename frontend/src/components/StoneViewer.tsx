@@ -5,6 +5,7 @@ import type { Point, SoundParams } from "@/types/stone";
 
 type StoneViewerProps = {
   points: Point[];
+  indices?: number[];
   sound: SoundParams;
   waveLevel: number;
   playing: boolean;
@@ -17,12 +18,18 @@ const BASE_POINT_SIZE = 0.012;
 const OVERLAY_POINT_SIZE = 0.02;
 const BASE_OPACITY = 0.82;
 const OVERLAY_OPACITY = 0.4;
+const BASE_MESH_OPACITY = 0.5;
+const OVERLAY_MESH_OPACITY = 0.32;
+const BASE_WIRE_OPACITY = 0.045;
+const OVERLAY_WIRE_OPACITY = 0.08;
 const OVERLAY_SCALE = 1.12;
 const DRONE_PERIOD = 5.2;
 const DEFORM_INTERVAL_MS = 1000 / 30;
+const EMPTY_INDICES: number[] = [];
 
 export function StoneViewer({
   points,
+  indices = EMPTY_INDICES,
   sound,
   waveLevel,
   playing,
@@ -88,12 +95,15 @@ export function StoneViewer({
     let controls: import("three/examples/jsm/controls/OrbitControls.js").OrbitControls | undefined;
     let geometry: import("three").BufferGeometry | undefined;
     let positionAttribute: import("three").BufferAttribute | undefined;
-    let material: import("three").PointsMaterial | undefined;
+    let meshMaterial: import("three").MeshBasicMaterial | undefined;
+    let wireMaterial: import("three").MeshBasicMaterial | undefined;
+    let pointMaterial: import("three").PointsMaterial | undefined;
     let glowGeometry: import("three").BufferGeometry | undefined;
     let glowMaterial: import("three").PointsMaterial | undefined;
-    let stone: import("three").Points | undefined;
+    let stone: import("three").Object3D | undefined;
     let animatedPositions: Float32Array | undefined;
     let basePositions: Float32Array | undefined;
+    const useMesh = indices.length >= 3;
 
     const onResize = () => {
       if (!renderer || !camera || !mount) {
@@ -136,9 +146,9 @@ export function StoneViewer({
         animatedPositions![index * 3] = point.x;
         animatedPositions![index * 3 + 1] = point.y;
         animatedPositions![index * 3 + 2] = point.z;
-        colors[index * 3] = point.r / 255;
-        colors[index * 3 + 1] = point.g / 255;
-        colors[index * 3 + 2] = point.b / 255;
+        colors[index * 3] = Math.min(1, (point.r / 255) * 1.12);
+        colors[index * 3 + 1] = Math.min(1, (point.g / 255) * 1.12);
+        colors[index * 3 + 2] = Math.min(1, (point.b / 255) * 1.12);
       });
       basePositions = animatedPositions.slice();
 
@@ -146,16 +156,43 @@ export function StoneViewer({
       positionAttribute = new THREE.BufferAttribute(animatedPositions, 3);
       geometry.setAttribute("position", positionAttribute);
       geometry.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+      if (useMesh) {
+        geometry.setIndex(indices);
+        geometry.computeVertexNormals();
+      }
       geometry.computeBoundingSphere();
 
-      material = new THREE.PointsMaterial({
-        size: BASE_POINT_SIZE,
-        vertexColors: true,
-        sizeAttenuation: true,
-        transparent: true,
-        opacity: BASE_OPACITY,
-      });
-      stone = new THREE.Points(geometry, material);
+      stone = new THREE.Group();
+      if (useMesh) {
+        meshMaterial = new THREE.MeshBasicMaterial({
+          vertexColors: true,
+          transparent: true,
+          opacity: BASE_MESH_OPACITY,
+          side: THREE.DoubleSide,
+          depthWrite: false,
+          polygonOffset: true,
+          polygonOffsetFactor: 1,
+          polygonOffsetUnits: 1,
+        });
+        stone.add(new THREE.Mesh(geometry, meshMaterial));
+        wireMaterial = new THREE.MeshBasicMaterial({
+          color: configRef.current.theme.accent,
+          wireframe: true,
+          transparent: true,
+          opacity: BASE_WIRE_OPACITY,
+          depthWrite: false,
+        });
+        stone.add(new THREE.Mesh(geometry, wireMaterial));
+      } else {
+        pointMaterial = new THREE.PointsMaterial({
+          size: BASE_POINT_SIZE,
+          vertexColors: true,
+          sizeAttenuation: true,
+          transparent: true,
+          opacity: BASE_OPACITY,
+        });
+        stone.add(new THREE.Points(geometry, pointMaterial));
+      }
 
       if (waveLevelRef.current >= 7) {
         const glowPositions = new Float32Array(Math.ceil(points.length / 7) * 3);
@@ -230,13 +267,31 @@ export function StoneViewer({
           stone.position.y =
             Math.cos(elapsed * 0.36 * motionSpeed) * 0.0025 * visual.drift * activity;
         }
-        if (material) {
+        if (meshMaterial) {
+          meshMaterial.blending = overlayingNow ? THREE.AdditiveBlending : THREE.NormalBlending;
+          meshMaterial.opacity = Math.min(
+            overlayingNow ? 0.48 : 0.62,
+            (overlayingNow ? OVERLAY_MESH_OPACITY : BASE_MESH_OPACITY) +
+              pulseEnergyRef.current * 0.16 * visual.pulse,
+          );
+        }
+        if (wireMaterial) {
+          wireMaterial.color.set(configRef.current.theme.accent);
+          wireMaterial.blending = overlayingNow ? THREE.AdditiveBlending : THREE.NormalBlending;
+          wireMaterial.opacity = Math.min(
+            overlayingNow ? 0.38 : 0.28,
+            (overlayingNow ? OVERLAY_WIRE_OPACITY : BASE_WIRE_OPACITY) +
+              pulseEnergyRef.current * 0.14 * visual.pulse,
+          );
+        }
+        if (pointMaterial) {
           const pointSize = overlayingNow ? OVERLAY_POINT_SIZE : BASE_POINT_SIZE;
           const restOpacity = overlayingNow ? OVERLAY_OPACITY : BASE_OPACITY;
-          material.blending = overlayingNow ? THREE.AdditiveBlending : THREE.NormalBlending;
-          material.depthWrite = !overlayingNow;
-          material.size = pointSize + pulseEnergyRef.current * (overlayingNow ? 0.006 : 0.004) * visual.pulse;
-          material.opacity = Math.min(
+          pointMaterial.blending = overlayingNow ? THREE.AdditiveBlending : THREE.NormalBlending;
+          pointMaterial.depthWrite = !overlayingNow;
+          pointMaterial.size =
+            pointSize + pulseEnergyRef.current * (overlayingNow ? 0.006 : 0.004) * visual.pulse;
+          pointMaterial.opacity = Math.min(
             overlayingNow ? 0.72 : 1,
             restOpacity + pulseEnergyRef.current * (overlayingNow ? 0.24 : 0.18) * visual.pulse,
           );
@@ -301,7 +356,9 @@ export function StoneViewer({
       window.removeEventListener("resize", onResize);
       controls?.dispose();
       geometry?.dispose();
-      material?.dispose();
+      meshMaterial?.dispose();
+      wireMaterial?.dispose();
+      pointMaterial?.dispose();
       glowGeometry?.dispose();
       glowMaterial?.dispose();
       renderer?.dispose();
@@ -309,7 +366,7 @@ export function StoneViewer({
         mount.removeChild(renderer.domElement);
       }
     };
-  }, [points]);
+  }, [points, indices]);
 
   return (
     <div

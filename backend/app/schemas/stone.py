@@ -31,6 +31,7 @@ class Point(BaseModel):
 
 class PointCloud(BaseModel):
     points: list[Point]
+    indices: list[int] = Field(default_factory=list)
 
 
 class Sound(BaseModel):

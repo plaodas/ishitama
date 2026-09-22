@@ -36,6 +36,7 @@ export type Wave = {
 export type StoneAnalysis = {
   pointCloud: {
     points: Point[];
+    indices?: number[];
   };
   sound: SoundParams;
   wave: Wave;

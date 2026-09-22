@@ -194,6 +194,7 @@ export default function App() {
             <OverlayFeed active={overlaying} photoUrl={previewUrl} />
             <StoneViewer
               points={analysis.pointCloud.points}
+              indices={analysis.pointCloud.indices}
               sound={analysis.sound}
               waveLevel={analysis.wave.level}
               playing={listening}
