@@ -2,24 +2,26 @@ from __future__ import annotations
 
 import asyncio
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from starlette.responses import Response
 
+from app.api.auth import router as auth_router
 from app.api.stone import router as stone_router
+from app.services.cors import cors_origins
 from app.services.depth import load_estimator
 from app.services.memory import trim_idle_rss
 from app.services.ollama import warm_model
 
-
-def _cors_origins() -> list[str]:
-    raw = os.getenv(
-        "BACKEND_CORS_ORIGINS",
-        "http://localhost:3000,http://127.0.0.1:3000",
-    )
-    return [origin.strip() for origin in raw.split(",") if origin.strip()]
+_ORIGIN_GUARDED = {
+    ("POST", "/api/auth/login"),
+    ("POST", "/api/auth/logout"),
+    ("POST", "/api/stone/analyze"),
+}
 
 
 @asynccontextmanager
@@ -38,12 +40,28 @@ app = FastAPI(
     redoc_url="/redoc" if _docs_enabled else None,
     openapi_url="/openapi.json" if _docs_enabled else None,
 )
+
+
+@app.middleware("http")
+async def guard_origin(
+    request: Request,
+    call_next: Callable[[Request], Awaitable[Response]],
+) -> Response:
+    if (request.method, request.url.path) in _ORIGIN_GUARDED:
+        origin = request.headers.get("origin")
+        if origin not in cors_origins():
+            return JSONResponse(status_code=403, content={"detail": "forbidden origin"})
+    return await call_next(request)
+
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_cors_origins(),
+    allow_origins=cors_origins(),
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(auth_router)
 app.include_router(stone_router)
 
 

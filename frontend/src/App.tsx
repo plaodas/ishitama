@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 
 import { CapturePanel } from "@/components/CapturePanel";
+import { GatePanel } from "@/components/GatePanel";
 import { SpiritMessage } from "@/components/SpiritMessage";
 import { StoneSong } from "@/components/StoneSong";
 import { StoneViewer } from "@/components/StoneViewer";
 import { WavePanel } from "@/components/WavePanel";
-import { AnalyzeError, analyzeStone } from "@/lib/api";
+import { AnalyzeError, analyzeStone, currentSession, loginWithPassword, logoutSession } from "@/lib/api";
 import { pulseHaptic, stopHaptic } from "@/lib/haptic";
 import { INSTRUMENT_CONFIG } from "@/lib/instrumentConfig";
 import type { Instrument, StoneAnalysis } from "@/types/stone";
@@ -33,6 +34,7 @@ export default function App() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<StoneAnalysis | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [authed, setAuthed] = useState<boolean | null>(null);
   const [listening, setListening] = useState(false);
   const [pulseTick, setPulseTick] = useState(0);
   const [exploring, setExploring] = useState(false);
@@ -47,6 +49,24 @@ export default function App() {
         "--level-glow": `${analysis.wave.level <= 3 ? 0 : analysis.wave.level <= 6 ? 2 : 4}px`,
       } as CSSProperties)
     : undefined;
+
+  useEffect(() => {
+    let cancelled = false;
+    void currentSession()
+      .then((ok) => {
+        if (!cancelled) {
+          setAuthed(ok);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setAuthed(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     return () => {
@@ -118,6 +138,22 @@ export default function App() {
     setPhase("capturing");
   };
 
+  const onLogin = async (password: string) => {
+    setError(null);
+    try {
+      await loginWithPassword(password);
+      setAuthed(true);
+    } catch (caught) {
+      setError(caught instanceof AnalyzeError ? caught.message : "石は応えなかった");
+    }
+  };
+
+  const onLogout = async () => {
+    await logoutSession();
+    setAuthed(false);
+    onReset();
+  };
+
   const onAnalyze = async () => {
     if (!file) {
       return;
@@ -130,6 +166,9 @@ export default function App() {
       setPhase("spirit");
     } catch (caught) {
       setAnalysis(null);
+      if (caught instanceof AnalyzeError && caught.status === 401) {
+        setAuthed(false);
+      }
       setError(caught instanceof AnalyzeError ? caught.message : "石は応えなかった");
       setExploring(false);
       setPhase("idle");
@@ -158,7 +197,13 @@ export default function App() {
         <h1>石魂</h1>
       </header>
 
-      {phase !== "spirit" && (
+      {phase !== "spirit" && authed === null && <p className="status">確認しています</p>}
+
+      {phase !== "spirit" && authed === false && (
+        <GatePanel error={error} onSubmit={onLogin} />
+      )}
+
+      {phase !== "spirit" && authed === true && (
         <>
           <CapturePanel
             previewUrl={previewUrl}
@@ -177,6 +222,14 @@ export default function App() {
           {phase === "analyzing" && (
             <p className="status">石の魂を呼び出しています</p>
           )}
+          <button
+            className="ghost-button"
+            type="button"
+            disabled={phase === "analyzing"}
+            onClick={() => void onLogout()}
+          >
+            退出
+          </button>
         </>
       )}
 

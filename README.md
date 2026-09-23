@@ -63,6 +63,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 pip install -r requirements-dev.txt
 export BACKEND_CORS_ORIGINS="http://localhost:3000,http://127.0.0.1:3000"
+export GATE_PASSWORD="change-me"
 uvicorn app.main:app --reload --port 8000
 ```
 
@@ -79,15 +80,30 @@ npm install
 npm run dev
 ```
 
-ブラウザで `http://localhost:3000` を開き、石の写真を選んで「詠唱」する。
+ブラウザで `http://localhost:3000` を開き、合言葉を入れてから石の写真を選んで「詠唱」する。合言葉はバックエンドの `GATE_PASSWORD` と同じにする。
 
 ## API
 
+`POST /api/auth/login`
+
+- 入力: `{ "password": "GATE_PASSWORD と同じ合言葉" }`。`Origin` は `BACKEND_CORS_ORIGINS` にあるものに限る
+- 成功すると `{ "status": "ok" }` と、セッショントークンを入れた `Set-Cookie` を返す。cookie は `HttpOnly; Secure; Path=/; SameSite=None; Partitioned`（CHIPS）で、12 時間有効。合言葉違いは 401。同じ IP から 1 分に 6 回目以降は 429。`GATE_PASSWORD` 未設定は 503。`Origin` が無い・許可外は 403
+- Vercel と Railway は別サイトなので、この cookie はパーティション付きのクロスサイト cookie になる。Safari では保存されないことがある
+
+`GET /api/auth/me`
+
+- cookie が有効なら `{ "status": "ok" }`。無い・期限切れは 401
+
+`POST /api/auth/logout`
+
+- cookie があればそのセッションを無効化し、同じ属性で cookie を消す
+- `Origin` が無い・許可外は 403
+
 `POST /api/stone/analyze`
 
-- 入力: `multipart/form-data` の `image`（jpg / png、8MB まで）と `hour`（端末の時、0–23。省略可）
+- 入力: セッション cookie と `multipart/form-data` の `image`（jpg / png、8MB まで）と `hour`（端末の時、0–23。省略可）。`Origin` は許可リスト内
 - 出力: `pointCloud` / `sound` / `wave` / `message`
-- 8MB を超える画像は 413。同じ IP から 1 分に 11 回目以降は 429。推論中の追加リクエストは 503
+- cookie 無し・期限切れは 401。`Origin` が無い・許可外は 403。8MB を超える画像は 413。同じ IP から 1 分に 11 回目以降は 429。推論中の追加リクエストは 503
 
 ## Docker
 
@@ -96,6 +112,8 @@ npm run dev
 ```bash
 docker compose up --build
 ```
+
+`GATE_PASSWORD` を環境変数で渡す。未設定だとログインできない。
 
 - `ollama` はモデルをボリューム `ollama-data`（`/root/.ollama`）に置く。イメージを作り直しても、ボリュームが残っていれば再ダウンロードしない。公開ポートは `127.0.0.1:11434` だけで、コンテナ間は `ollama:11434` のまま
 - `ollama-init` は初回に `qwen2.5:3b`（約 2GB）を取得する
@@ -108,10 +126,10 @@ docker compose up --build
 ```bash
 cd backend
 docker build -t ishitama-api .
-docker run --rm -p 8000:8000 -e BACKEND_CORS_ORIGINS="http://localhost:3000" ishitama-api
+docker run --rm -p 8000:8000 -e BACKEND_CORS_ORIGINS="http://localhost:3000" -e GATE_PASSWORD="change-me" ishitama-api
 ```
 
-本番では frontend を Vercel、backend を Railway に載せている。Railway はメモリ 2GB 以上、リクエストタイムアウト 60 秒以上を想定する。フロントの `VITE_API_URL` にバックエンド URL を設定する。Railway から Ollama へ届かない場合、文は表に戻る。
+本番では frontend を Vercel、backend を Railway に載せている。Railway はメモリ 2GB 以上、リクエストタイムアウト 60 秒以上を想定する。フロントの `VITE_API_URL` にバックエンド URL を設定し、`BACKEND_CORS_ORIGINS` に `https://ishitama.vercel.app` を入れる。Railway から Ollama へ届かない場合、文は表に戻る。
 
 ## 静的解析
 

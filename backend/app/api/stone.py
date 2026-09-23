@@ -4,10 +4,21 @@ import asyncio
 import time
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, File, Form, HTTPException, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    BackgroundTasks,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Request,
+    UploadFile,
+)
 
+from app.api.deps import require_session
 from app.schemas.stone import StoneAnalysis
 from app.services.analyze import analyze_image
+from app.services.client_ip import client_ip
 from app.services.depth import get_estimator
 from app.services.memory import trim_idle_rss
 
@@ -28,17 +39,6 @@ ALLOWED_TYPES = {
 
 _analyze_slot = asyncio.Semaphore(1)
 _hits: dict[str, list[float]] = {}
-
-
-def _client_ip(request: Request) -> str:
-    forwarded = request.headers.get("x-forwarded-for")
-    if forwarded:
-        first = forwarded.split(",", 1)[0].strip()
-        if first:
-            return first
-    if request.client is not None and request.client.host:
-        return request.client.host
-    return "unknown"
 
 
 def _allow_request(ip: str) -> bool:
@@ -89,11 +89,12 @@ async def analyze_stone(
     request: Request,
     image: Annotated[UploadFile, File()],
     background_tasks: BackgroundTasks,
+    _token: Annotated[str, Depends(require_session)],
     hour: Annotated[int | None, Form()] = None,
 ) -> StoneAnalysis:
     if image.content_type not in ALLOWED_TYPES:
         raise HTTPException(status_code=400, detail="jpg/png only")
-    if not _allow_request(_client_ip(request)):
+    if not _allow_request(client_ip(request)):
         raise HTTPException(status_code=429, detail="too many requests")
 
     raw = await _read_limited(image)
