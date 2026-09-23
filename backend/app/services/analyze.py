@@ -15,6 +15,7 @@ from app.services.sound import build_sound
 from app.services.wave import build_wave
 
 MAX_SIDE = 384
+MAX_PIXELS = 50_000_000
 
 
 def analyze_image(
@@ -43,12 +44,19 @@ def analyze_image(
 def _open_rgb(raw: bytes) -> Image.Image:
     try:
         opened = Image.open(io.BytesIO(raw))
-        fmt = opened.format
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
+        raise ValueError("unreadable image") from exc
+    if opened.format not in {"JPEG", "PNG"}:
+        raise ValueError("jpg/png only")
+    width, height = opened.size
+    if width * height > MAX_PIXELS:
+        raise ValueError("image too large")
+    try:
+        if opened.format == "JPEG":
+            opened.draft("RGB", (MAX_SIDE, MAX_SIDE))
         transposed = ImageOps.exif_transpose(opened)
         image = transposed if transposed is not None else opened
         image.load()
-    except (UnidentifiedImageError, OSError) as exc:
+    except (UnidentifiedImageError, OSError, Image.DecompressionBombError) as exc:
         raise ValueError("unreadable image") from exc
-    if fmt not in {"JPEG", "PNG"}:
-        raise ValueError("jpg/png only")
     return image.convert("RGB")

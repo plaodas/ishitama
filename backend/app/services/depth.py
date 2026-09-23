@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import os
 from pathlib import Path
 from urllib.request import urlretrieve
@@ -13,6 +14,7 @@ GITHUB_MODEL_URL = (
     "v2.0.0/depth_anything_v2_vits_dynamic.onnx"
 )
 MODEL_NAME = "depth_anything_v2_vits_dynamic.onnx"
+MODEL_SHA256 = "46c4e8eeda3a27f34701831b6a2ec7753d7b38779b215acb5633424703deed8f"
 INPUT_SIZE = 518
 PATCH_MULTIPLE = 14
 IMAGENET_MEAN = np.array([0.485, 0.456, 0.406], dtype=np.float32)
@@ -48,18 +50,28 @@ class DepthEstimator:
         return depth_np
 
 
+def _verify_model(path: Path) -> None:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    if digest.hexdigest() != MODEL_SHA256:
+        raise RuntimeError(f"depth model sha256 mismatch: {path}")
+
+
 def _resolve_model_path() -> str:
     env_path = os.getenv("DEPTH_MODEL_PATH")
     if env_path and Path(env_path).is_file():
-        return env_path
+        path = Path(env_path)
+        _verify_model(path)
+        return str(path)
 
     cache_root = Path(os.getenv("HF_HOME", Path.home() / ".cache" / "ishitama"))
     dest = cache_root / MODEL_NAME
-    if dest.is_file():
-        return str(dest)
-
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    urlretrieve(GITHUB_MODEL_URL, dest)
+    if not dest.is_file():
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        urlretrieve(GITHUB_MODEL_URL, dest)
+    _verify_model(dest)
     return str(dest)
 
 

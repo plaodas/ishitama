@@ -5,7 +5,7 @@ import { SpiritMessage } from "@/components/SpiritMessage";
 import { StoneSong } from "@/components/StoneSong";
 import { StoneViewer } from "@/components/StoneViewer";
 import { WavePanel } from "@/components/WavePanel";
-import { analyzeStone } from "@/lib/api";
+import { AnalyzeError, analyzeStone } from "@/lib/api";
 import { pulseHaptic, stopHaptic } from "@/lib/haptic";
 import { INSTRUMENT_CONFIG } from "@/lib/instrumentConfig";
 import type { Instrument, StoneAnalysis } from "@/types/stone";
@@ -128,9 +128,9 @@ export default function App() {
       const result = await analyzeStone(file);
       setAnalysis(result);
       setPhase("spirit");
-    } catch {
+    } catch (caught) {
       setAnalysis(null);
-      setError("石は応えなかった");
+      setError(caught instanceof AnalyzeError ? caught.message : "石は応えなかった");
       setExploring(false);
       setPhase("idle");
     }

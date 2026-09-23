@@ -30,11 +30,17 @@ async def lifespan(_app: FastAPI) -> AsyncIterator[None]:
     yield
 
 
-app = FastAPI(title="Spirit of Stone", lifespan=lifespan)
+_docs_enabled = os.getenv("ENABLE_DOCS") == "1"
+app = FastAPI(
+    title="Spirit of Stone",
+    lifespan=lifespan,
+    docs_url="/docs" if _docs_enabled else None,
+    redoc_url="/redoc" if _docs_enabled else None,
+    openapi_url="/openapi.json" if _docs_enabled else None,
+)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_origins(),
-    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )

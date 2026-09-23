@@ -87,6 +87,7 @@ npm run dev
 
 - 入力: `multipart/form-data` の `image`（jpg / png、8MB まで）と `hour`（端末の時、0–23。省略可）
 - 出力: `pointCloud` / `sound` / `wave` / `message`
+- 8MB を超える画像は 413。同じ IP から 1 分に 11 回目以降は 429。推論中の追加リクエストは 503
 
 ## Docker
 
@@ -96,7 +97,7 @@ npm run dev
 docker compose up --build
 ```
 
-- `ollama` はモデルをボリューム `ollama-data`（`/root/.ollama`）に置く。イメージを作り直しても、ボリュームが残っていれば再ダウンロードしない
+- `ollama` はモデルをボリューム `ollama-data`（`/root/.ollama`）に置く。イメージを作り直しても、ボリュームが残っていれば再ダウンロードしない。公開ポートは `127.0.0.1:11434` だけで、コンテナ間は `ollama:11434` のまま
 - `ollama-init` は初回に `qwen2.5:3b`（約 2GB）を取得する
 - `backend` は取得後に起動し、モデルをメモリへ載せる
 
